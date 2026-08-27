@@ -425,7 +425,6 @@ function initMetaPixel(){
   (window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   META_PIXEL_IDS.forEach(function(id){ window.fbq('init', id); });
   window.fbq('track','PageView');
-  installLeadGuard();
   console.log('[Meta Pixel] Initialized', META_PIXEL_IDS);
 }
 function trackMetaLead(params, eventId){
@@ -1316,7 +1315,12 @@ function submitLead(lead){
 
         try { trackLeadSignup(leadId, { content_name:'quiz_lead', profile: result.profile }); }
         catch(e){ console.error('[Meta Pixel] Lead no resultado falhou:', e); }
-      
+
+        if (window.fbq){
+          window.fbq('trackCustom','cadastro', { rota: newRoute, aprovado: qualified });
+          console.log('[Meta Pixel] cadastro enviado:', newRoute);
+        }
+
         if (qualified) renderApproved(); else renderAnalysis();
     }
 
