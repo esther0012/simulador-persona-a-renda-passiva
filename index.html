@@ -1317,7 +1317,7 @@ function submitLead(lead){
         catch(e){ console.error('[Meta Pixel] Lead no resultado falhou:', e); }
 
         if (window.fbq){
-          window.fbq('trackCustom','cadastro', { rota: newRoute, aprovado: qualified });
+          window.fbq('trackCustom','Lead', { rota: newRoute, aprovado: qualified });
           console.log('[Meta Pixel] cadastro enviado:', newRoute);
         }
 
