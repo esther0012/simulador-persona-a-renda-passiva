@@ -1194,7 +1194,31 @@ function detectCountry(){
   }).catch(function(){});
 }
 
-var waTimer=null, lastValidated='';
+var waTimer=null;
+var waCache = {};   // e164 -> true | false
+
+function parseWaResult(data){
+  if (!data) return null;
+  var v = (data.exists !== undefined) ? data.exists : data.existe;
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'string') return v.toLowerCase() === 'true';
+  return !!v;
+}
+function checkWhatsapp(e164){
+  if (waCache.hasOwnProperty(e164)) return Promise.resolve(waCache[e164]);
+  var timeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 5000); });
+  var req = sbFunction('validate-whatsapp', { telefone: e164 }).then(function(data){
+    var r = parseWaResult(data);
+    if (r !== null) waCache[e164] = r;
+    return r;
+  });
+  return Promise.race([req, timeout]);
+}
+function currentE164(){
+  var d = document.getElementById('fPhone').value.replace(/\D/g,'');
+  return formState.country.ddi.replace(/\D/g,'') + d;
+}
+  
 function wireForm(){
   var nameI=document.getElementById('fName'), phoneI=document.getElementById('fPhone'), emailI=document.getElementById('fEmail');
   var cBtn=document.getElementById('cBtn'), cDrop=document.getElementById('cDrop'), cSearch=document.getElementById('cSearch');
@@ -1208,33 +1232,28 @@ function wireForm(){
     if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) showErr('eEmail', emailI, v.indexOf('@')<0 ? 'E-mail deve conter @' : 'E-mail inválido');
   });
 
-  phoneI.addEventListener('input', function(){
+    phoneI.addEventListener('input', function(){
     phoneI.value = formatPhone(phoneI.value, formState.country.code);
     hideErr('ePhone', phoneI);
-    formState.waValid = null;
     document.getElementById('pOk').classList.add('hidden');
     clearTimeout(waTimer);
     var digits = phoneI.value.replace(/\D/g,'');
-    var m = getMask(formState.country.code);
-    if (digits.length < m.min) return;
-    var e164 = formState.country.ddi.replace(/\D/g,'') + digits;
-    if (e164 === lastValidated) return;
+    if (digits.length < getMask(formState.country.code).min) return;
+    var e164 = currentE164();
     waTimer = setTimeout(function(){
-      formState.validating = true;
-      sbFunction('validate-whatsapp', { telefone: e164 }).then(function(data){
-        lastValidated = e164; formState.validating = false;
-        if (data && data.exists === false){
-          formState.waValid = false;
+      checkWhatsapp(e164).then(function(r){
+        if (e164 !== currentE164()) return;           // resposta antiga, ignora
+        if (r === false){
           showErr('ePhone', phoneI, 'Este número não possui WhatsApp ativo. Verifique e tente novamente.');
-        } else {
-          formState.waValid = true;
-          var ok=document.getElementById('pOk');
-          ok.innerHTML='<i data-lucide="check" style="width:20px;height:20px"></i>'; ok.classList.remove('hidden'); icons();
+        } else if (r === true){
+          var ok = document.getElementById('pOk');
+          ok.innerHTML = '<i data-lucide="check" style="width:20px;height:20px"></i>';
+          ok.classList.remove('hidden'); icons();
         }
       });
     }, 700);
   });
-
+  
   cBtn.addEventListener('click', function(e){
     e.stopPropagation();
     formState.dropOpen = !formState.dropOpen;
@@ -1264,13 +1283,25 @@ function onSubmitForm(ev){
   var m = getMask(formState.country.code);
   if (digits.length < m.min){ showErr('ePhone', phoneI, 'Número de telefone inválido'); ok=false; } else hideErr('ePhone', phoneI);
   if (!ok) return;
-  if (formState.waValid === false){ showErr('ePhone', phoneI, 'Este número não possui WhatsApp ativo. Verifique e tente novamente.'); return; }
-  // Nao bloqueia o cadastro se a checagem de WhatsApp ainda estiver em andamento: o lead segue para o calculo e a pagina final.
 
   var ddi = formState.country.ddi.replace(/\D/g,'');
-  submitLead({
-    name: nm, email: em.toLowerCase(), phone: digits,
-    country: formState.country.name, ddi: formState.country.ddi, phoneE164: ddi + digits
+  var e164 = ddi + digits;
+  var btn = document.getElementById('submitBtn');
+  state.submitting = true;
+  btn.disabled = true; btn.textContent = 'Verificando WhatsApp...';
+
+  // sempre confere no envio (usa o cache se já validou)
+  checkWhatsapp(e164).then(function(r){
+    state.submitting = false;
+    if (r === false){
+      btn.disabled = false; btn.textContent = 'Ver meu plano';
+      showErr('ePhone', phoneI, 'Este número não possui WhatsApp ativo. Verifique e tente novamente.');
+      return;
+    }
+    submitLead({
+      name: nm, email: em.toLowerCase(), phone: digits,
+      country: formState.country.name, ddi: formState.country.ddi, phoneE164: e164
+    });
   });
 }
 
