@@ -373,13 +373,18 @@ function uuid(){
 /* ============ NITRO / n8n ============ */
 var visitorInfo = { ip: undefined, pais: undefined };
 
+var NITRO_API_KEY = 'n8n.uA5GXxCvJrsexY$et9PyrScGy-nitro';
+
 function sendToNitroLeads(payload){
     return fetch(NITRO_LEADS, {
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{
+            'Content-Type':'application/json',
+            'api-key': NITRO_API_KEY
+        },
         body: JSON.stringify(payload)
     }).then(function(r){ console.log('[Nitro leadsLP] status:', r.status); return r.ok; })
-        .catch(function(e){ console.error('[Nitro leadsLP] falhou:', e); return false; });
+      .catch(function(e){ console.error('[Nitro leadsLP] falhou:', e); return false; });
 }
 
 /* ============ META PIXEL ============ */
