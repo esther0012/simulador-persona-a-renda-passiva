@@ -353,23 +353,14 @@ var waCache = {};
 // true = tem WhatsApp | false = não tem | null = não deu pra saber (erro/timeout)
 function checkWhatsapp(e164){
   if (waCache[e164] !== undefined) return Promise.resolve(waCache[e164]);
-  var ctrl = new AbortController();
-  var t = setTimeout(function(){ ctrl.abort(); }, 6000);
-  return fetch(NITRO_VALIDATE, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ telefone: e164 }),
-    signal: ctrl.signal
-  })
-  .then(function(r){ return r.json(); })
-  .then(function(data){
-    clearTimeout(t);
-    var p = Array.isArray(data) ? data[0] : data;   // a resposta vem em array
+  var timeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 6000); });
+  var call = sbFunction('validate-whatsapp', { telefone: e164 }).then(function(data){
+    var p = Array.isArray(data) ? data[0] : data;
     if (p && p.exists === false) return (waCache[e164] = false);
     if (p && p.exists === true)  return (waCache[e164] = true);
-    return null;
-  })
-  .catch(function(){ clearTimeout(t); return null; });
+    return null;   // erro ou resposta inesperada: não bloqueia
+  });
+  return Promise.race([call, timeout]);
 }
 
 function currentE164(){
