@@ -740,13 +740,12 @@ function sendToCRM(payload){
         score_capacidade:payload.scores.capacidade, score_timing:payload.scores.timing, score_consciencia:payload.scores.consciencia,
         lead_score:leadScore, detected_country:payload.country, user_agent:navigator.userAgent,
         source_variant:variant, source_route:route
-    }).then(function(ok){
-        if (!ok) return null;
-        console.log('[CRM] Lead saved! ID:', leadId);
-        trackEventDb('lead_created', {variant:variant});
-        sbFunction('send-lead-webhook', payload);
-        return leadId;
-    });
+        }).then(function(ok){
+            if (!ok) return null;
+            console.log('[CRM] Lead saved! ID:', leadId);
+            trackEventDb('lead_created', {variant:variant});
+            return leadId;
+        });
 }
 
 /* ============ APP STATE ============ */
